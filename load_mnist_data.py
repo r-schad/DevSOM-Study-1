@@ -6,10 +6,10 @@ def load_mnist_data(mnist_data_path):
     return a tuple of the following numpy arrays:
     (train_img_arr, train_label_arr, test_img_arr, test_label_arr)
     '''
-    train_img_file = 'mnist_data_path\\train-images.idx3-ubyte'
-    train_label_file = 'mnist_data_path\\train-labels.idx1-ubyte'
-    test_img_file = 'mnist_data_path\\t10k-images.idx3-ubyte'
-    test_label_file = 'mnist_data_path\\t10k-labels.idx1-ubyte'
+    train_img_file = f'{mnist_data_path}\\train-images.idx3-ubyte'
+    train_label_file = f'{mnist_data_path}\\train-labels.idx1-ubyte'
+    test_img_file = f'{mnist_data_path}\\t10k-images.idx3-ubyte'
+    test_label_file = f'{mnist_data_path}\\t10k-labels.idx1-ubyte'
 
     train_img_arr = idx2numpy.convert_from_file(train_img_file) # shape = (60000, 28, 28)
     train_label_arr = idx2numpy.convert_from_file(train_label_file) # shape = (60000,)
