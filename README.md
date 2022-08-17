@@ -1,5 +1,5 @@
 # DevSOM-Study-1
-The first experiment will be to train a series of growing SOFM networks on MNIST images of increasing resolution. To do this, we take the 28x28 MNIST images and blur them with a 3x3 blurring filter to get the blurred set MNIST-b3, and with a 5x5 blurring filter to get the blurred set MNIST-b5. For consistency, we call the full MNIST set MNIST-b1 (blurred by a 1x1 filter, i.e., not blurred).
+The first study will be to train a series of growing SOFM networks on MNIST images of increasing resolution. To do this, we take the 28x28 MNIST images and blur them with a 3x3 blurring filter to get the blurred set MNIST-b3, and with a 5x5 blurring filter to get the blurred set MNIST-b5. For consistency, we call the full MNIST set MNIST-b1 (blurred by a 1x1 filter, i.e., not blurred).
 ## Experiment 1: 
 Train a 24x24 SOFM on MNIST-b1 for $3m$ epochs.
 ## Experiment 2: 
