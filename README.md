@@ -3,17 +3,17 @@ The first study will be to train a series of growing SOFM networks on MNIST imag
 ## Experiment 1: 
 Train a 24x24 SOFM on MNIST-b1 for $3m$ epochs.
 ## Experiment 2: 
-Train a 6x6 SOFM on MNIST-b5 for $m$ epochs, complexify to 12x12 SOGM and train on MNIST-b3 for $m$ epochs, then complexify to 24x24 and train on MNIST-b1 for $m$ epochs. Compare performance on time and classification metrics with Experiment 1.
+Train a 6x6 SOFM on MNIST-b5 for $m$ epochs, complexify to 12x12 SOFM and train on MNIST-b3 for $m$ epochs, then complexify to 24x24 and train on MNIST-b1 for $m$ epochs. Compare performance on time and classification metrics with Experiment 1.
 ## Experiment 3: 
 Repeat Experiment 2 with systematically smaller number of epochs for training the final 24x24 network. Compare performances of all trials with Experiments 1 and 2.
 ## Experiment 4: 
 Repeat Experiment 2 keeping the total epochs set to $m$ but systematically allocating a larger fraction of that to smaller networks (use a well-defined protocol). Compare the results with Experiments 1 and 2.
 ## Readout System: 
-To see what the SOGM “thinks” it is seeing, add a 28x28 readout layer to the system. Each neuron of the layer corresponds to a pixel in the readout image. Each readout neuron receives inputs from all the SOFM neurons. The weight $v_{ij}$ from SOFM unit $j$ to readout unit $i$ is set to the same value as the (learned) weight $w_{ji}$ from input pixel $i$ to SOFM neuron $j$ (i.e. $v_{ij} = w_{ji}$). The net input of readout neuron $i$ is given by:
+To see what the SOFM “thinks” it is seeing, add a 28x28 readout layer to the system. Each neuron of the layer corresponds to a pixel in the readout image. Each readout neuron receives inputs from all the SOFM neurons. The weight $v_{ij}$ from SOFM unit $j$ to readout unit $i$ is set to the same value as the (learned) weight $w_{ji}$ from input pixel $i$ to SOFM neuron $j$ (i.e. $v_{ij} = w_{ji}$). The net input of readout neuron $i$ is given by:
 
 $$s_i = \sum_{j} v_{ij}y_j$$
 
-where $y_j$ is the activation of the SOFM neuron $j$ in response to the current input image. Since the SOGM neuron activation is based on the Euclidean distance between its weight vector and the current image, the activation should be radial basis function with a peak of 1 at the weight vector of the SOFM neuron. The output of readout neuron $i$ is a sigmoid function of its net input:
+where $y_j$ is the activation of the SOFM neuron $j$ in response to the current input image. Since the SOFM neuron activation is based on the Euclidean distance between its weight vector and the current image, the activation should be radial basis function with a peak of 1 at the weight vector of the SOFM neuron. The output of readout neuron $i$ is a sigmoid function of its net input:
 
 $$z_i = \frac{1}{1 + e^{\gamma{s_i}-\theta}}$$
 
