@@ -109,7 +109,7 @@ class SOFM():
         return self.sigma_o * math.e ** (-1 * epoch / self.tau_N)
 
 
-    def neighborhood(self, winner, epoch):
+    def neighborhood(self, winner, neighborhood_size):
         '''
         Takes in a winning neuron and current epoch and returns a 2d array (n x n)
         of the Gaussian neighborhood scaling factor for each neuron centered around the winner.
@@ -120,16 +120,16 @@ class SOFM():
         winner_i = self.convert_to_index(winner)
         dists = self.dist_arrays[winner_i] # get the dist_array for the winner neuron
         top = np.negative(np.square(dists)) 
-        bottom = 2 * self.sigma(epoch) ** 2
+        bottom = 2 * neighborhood_size ** 2
         return np.exp(np.divide(top, bottom))
 
 
-    def update_weights(self, input_vec, winner, epoch, lr):
+    def update_weights(self, input_vec, winner, sigma, lr):
         '''
         Takes in a single input vector, winning neuron, current epoch, and learning rate,
         and updates the model's weights in-place.
         '''
-        weight_changes = lr * self.neighborhood(winner, epoch).reshape(self.d1*self.d2,1) * np.subtract(input_vec, self.weights)
+        weight_changes = lr * self.neighborhood(winner, sigma).reshape(self.d1*self.d2,1) * np.subtract(input_vec, self.weights)
         self.weights += weight_changes
 
 
@@ -149,7 +149,8 @@ class SOFM():
                 winner = self.forward(img_arr_shuffled[q])
                 print(f'Winner of input {q}: {winner}')
                 # update weights
-                self.update_weights(img_arr_shuffled[q], winner, epoch, lr)
+                neighborhood_size = self.sigma(epoch)
+                self.update_weights(img_arr_shuffled[q], winner, neighborhood_size, lr)
             
             print(f'\n-----Time: {time.time() - start_epoch}-----\n\n')
 
