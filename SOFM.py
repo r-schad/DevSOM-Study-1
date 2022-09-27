@@ -10,7 +10,7 @@ def calc_distances(neuron_rows, neuron_cols, winner):
     a (d1 x d2) array of the column index of each neuron,
     and a winning neuron.
     Returns the (d1 x d2) array of distances of each neuron from the winner,
-    using the distance formula. (FIXME: compute this once when SOFM is initialized)
+    using the distance formula.
     '''
     return np.sqrt(np.square(np.subtract(neuron_rows, winner[0])) + np.square(np.subtract(neuron_cols, winner[1])))
 
@@ -51,11 +51,27 @@ class SOFM():
         self.neurons = np.array([[(i,j) for j in range(self.d1)] for i in range(self.d2)], dtype='i,i')
         self.neuron_rows = np.array([[i for _ in range(self.d1)] for i in range(self.d2)])
         self.neuron_cols = np.array([[j for j in range(self.d1)] for _ in range(self.d2)])
+        self.dist_arrays = self.get_distances_for_all_winners()
         self.num_features = num_features
         self.weights = np.random.rand(self.d1 * self.d2, self.num_features) * 0.2 #CHANGEME - weight initialization
         self.sigma_o = sigma_o
         self.tau_N = tau_N
-        
+
+
+    def get_distances_for_all_winners(self):
+        '''
+        Initializes a ((d1*d2) x d1 x d2) array of the Euclidian norms of each neuron for every possible winner.
+        (This avoids having to compute these values for each input example;
+        instead, we just do it for all possible neurons once at the start.)
+        '''
+        dist_arrs = np.ndarray((self.d1*self.d2, self.d1, self.d2))
+        for r in range(self.d1):
+            for c in range(self.d2):
+                i = self.convert_to_index((r,c))
+                dist_arrs[i] = calc_distances(self.neuron_rows, self.neuron_cols, (r,c))
+
+        return dist_arrs
+
 
     def convert_to_coord(self, i):
         '''
@@ -64,6 +80,7 @@ class SOFM():
         assert type(i) == int, 'Index must be type int' # convert from index to coordinates
         return (i // self.d2, i % self.d2)
 
+
     def convert_to_index(self, coords):
         '''
         Takes in a tuple coordinate, and returns its integer index based on the dimensions of the SOFM
@@ -71,6 +88,7 @@ class SOFM():
         assert type(coords) == tuple, 'Coordinates must be type tuple' # convert from coordinates to index
         return (coords[0] * self.d2) + coords[1]
             
+
     def forward(self, input_vec):
         '''
         Takes in a single input vector and a desired return type (tuple or int), 
@@ -81,6 +99,7 @@ class SOFM():
 
         return self.convert_to_coord(winner_index)
 
+
     def sigma(self, epoch):
         '''
         Takes in the current epoch and uses the model's fixed hyperparameters to return the 
@@ -89,15 +108,18 @@ class SOFM():
         # sigma = sigma_o * exp { -epoch / tau_N }
         return self.sigma_o * math.e ** (-1 * epoch / self.tau_N)
 
+
     def neighborhood(self, winner, epoch):
         '''
         Takes in a winning neuron and current epoch and returns a 2d array (n x n)
         of the Gaussian neighborhood scaling factor for each neuron centered around the winner.
         '''
-        # neighborhood =  exp  {     (-norm(neuron_i - winner) ) ^ 2      }
+        # neighborhood =  exp  {    ( -norm(neuron_i - winner) ) ^ 2      }
         #                      { ---------------------------------------  }
         #                      {          2 * sigma(epoch) ^ 2            }
-        top = np.negative(np.square(calc_distances(self.neuron_rows, self.neuron_cols, winner)))
+        winner_i = self.convert_to_index(winner)
+        dists = self.dist_arrays[winner_i] # get the dist_array for the winner neuron
+        top = np.negative(np.square(dists)) 
         bottom = 2 * self.sigma(epoch) ** 2
         return np.exp(np.divide(top, bottom))
 
@@ -107,7 +129,6 @@ class SOFM():
         Takes in a single input vector, winning neuron, current epoch, and learning rate,
         and updates the model's weights in-place.
         '''
-
         weight_changes = lr * self.neighborhood(winner, epoch).reshape(self.d1*self.d2,1) * np.subtract(input_vec, self.weights)
         self.weights += weight_changes
 
