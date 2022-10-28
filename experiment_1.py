@@ -25,15 +25,16 @@ import os
 from datetime import datetime
 import seaborn as sns
 
+from load_MNIST import load_mnist_data
 from SOFM import SOFM
 
-import import_ipynb
 
-# importing takes 2 attempts for some reason
-try:
-  from load_MNIST_data import load_mnist_data
-except:
-  from load_MNIST_data import load_mnist_data
+
+# # importing takes 2 attempts for some reason
+# try:
+#   from load_MNIST_data import load_mnist_data
+# except:
+#   from load_MNIST_data import load_mnist_data
 
 train_img_arr, train_label_arr, test_img_arr, test_label_arr = load_mnist_data("..\\..\\MNIST")
 
@@ -59,7 +60,7 @@ NETWORK_D2 = 24
 LEARNING_RATE = 0.025 # learning rate
 STARTING_NEIGHBORHOOD_SIZE = 3.0
 NEIGHBORHOOD_DECAY_RATE = 25
-NUM_EPOCHS = 900 # CHANGEME
+NUM_EPOCHS = 1 # CHANGEME
 
 sofm = SOFM(d1=NETWORK_D1, d2=NETWORK_D2, num_features=784, sigma_o=STARTING_NEIGHBORHOOD_SIZE, tau_N=NEIGHBORHOOD_DECAY_RATE)
 
