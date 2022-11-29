@@ -21,7 +21,7 @@ $$s_i = \sum_{j} v_{ij}y_j$$
 
 Then, the output of readout neuron $i$ is a sigmoid function of its net input:
 
-$$z_i = \frac{1}{1 + e^{-\gamma({s_i}-\theta)}}$$
+$$z_i = \frac{1}{1 + e^{\gamma(-{s_i}-\theta)}}$$
 
 where $\gamma$ and $\theta$ are parameters chosen by the user. With the right parameter setting, the readout image should show what the network’s internal view of the input is.
 By having and updating the readout layer during training, we can see how the network is self-organizing from initially random readouts to organized ones that accurately reflect the input. Basically, we have trained a self-organized auto-encoder.
