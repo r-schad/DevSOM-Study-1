@@ -141,7 +141,9 @@ class SOFM():
             # save readouts
             if readout_interval != 0:
                 if (epoch % readout_interval == 0):
-                    self.plot_readouts(readout_examples, epoch, alpha=2, gamma=0.25, theta=0., filename=readout_path + f'\\epoch{epoch}')
+                    self.plot_readouts(readout_examples, epoch, alpha=10, gamma=2, theta=0., filepath=readout_path)
+                    self.plot_readout_process(readout_examples, alpha=10, gamma=2, theta=0., filepath=readout_path)
+
 
             start_epoch = time.time()
             # get random shuffle of training set each epoch
@@ -152,7 +154,7 @@ class SOFM():
                 # get winning neuron
                 winner = self.forward(img_arr_shuffled[q])
                 if q % 1000 == 0:
-                    print(f'{q / len(img_arr_shuffled) * 100}%')
+                    print(f'{round(q / len(img_arr_shuffled) * 100, 1)}%')
                 # update weights
                 neighborhood_size = self.sigma(epoch)
                 self.update_weights(img_arr_shuffled[q], winner, neighborhood_size, lr)
@@ -191,7 +193,7 @@ class SOFM():
         return readout_outputs
 
 
-    def plot_readouts(self, input_vecs, current_epoch, alpha, gamma, theta, filename):
+    def plot_readouts(self, input_vecs, current_epoch, alpha, gamma, theta, filepath):
         f, axs = plt.subplots(2, 10)
         for i in range(10):
             axs[0][i].imshow(input_vecs[i].reshape(28,28), cmap='gray', vmin=0, vmax=1)
@@ -205,19 +207,18 @@ class SOFM():
         f.suptitle(f'Readouts at Epoch {current_epoch}\nalpha={alpha} | gamma={gamma} | theta={theta}')
         plt.tight_layout()
         plt.close()
-        f.savefig(filename + f"_alpha_{str(alpha).replace('.','p')}-gamma_{str(gamma).replace('.','p')}-theta_{str(theta).replace('.','p')}")
+        f.savefig(filepath + f"\\readouts_alpha_{str(alpha).replace('.','p')}-gamma_{str(gamma).replace('.','p')}-theta_{str(theta).replace('.','p')}")
 
 
     def grid_search_readouts(self, readout_examples, epoch, alphas, gammas, thetas, filepath):
-        gs_dir = filepath + '\\readouts\\grid_search\\'
+        gs_dir = filepath + '\\grid_search'
         if not os.path.isdir(gs_dir):
             os.mkdir(gs_dir)
         
         for alpha in alphas:
             for gamma in gammas:
                 for theta in thetas:
-                    # new_filename = f"\\--alpha_{str(alpha).replace('.','p')}--gamma_{str(gamma).replace('.','p')}--theta_{str(theta).replace('.','p')}"
-                    self.plot_readouts(readout_examples, epoch, alpha=alpha, gamma=gamma, theta=theta, filename=gs_dir)
+                    self.plot_readouts(readout_examples, epoch, alpha=alpha, gamma=gamma, theta=theta, filepath=gs_dir)
 
 
     def plot_readout_process(self, input_images, alpha, gamma, theta, filepath):
@@ -366,7 +367,7 @@ class SOFM():
             # get list of all winning neurons for each example of class i
             for q in range(len(dataset_i_only)):
                 if q % 1000 == 0:
-                    print(f'{q / len(dataset_i_only) * 100}%')
+                    print(f'{round(q / len(dataset_i_only) * 100, 1)}%')
                 winner_coords = self.forward(dataset_i_only[q].reshape(784))
                 winners[i][q] = winner_coords
 
@@ -402,8 +403,11 @@ class SOFM():
         
         num_correct = 0
         for q in range(len(dataset)):
+            if q % 1000 == 0:
+                print(f'{round(q / len(dataset) * 100, 1)}%')
+                
             winner_coords = self.forward(dataset[q])
-            print(f'Winner of input {q}: {winner_coords}')
+            
             row = winner_coords[0]
             col = winner_coords[1]
 
