@@ -2,6 +2,7 @@ import numpy as np
 import math, time
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 def calc_distances(neuron_rows, neuron_cols, winner):
     '''
@@ -55,7 +56,6 @@ class SOFM():
         self.weights = np.random.rand(self.d1 * self.d2, self.num_features) * 0.2 #CHANGEME - weight initialization
         self.sigma_o = sigma_o
         self.tau_N = tau_N
-
 
     def get_distances_for_all_winners(self):
         '''
@@ -132,27 +132,119 @@ class SOFM():
         self.weights += weight_changes
 
 
-    def train(self, img_arr, num_epochs, lr):
+    def train(self, img_arr, num_epochs, lr, readout_interval=0, readout_examples=[], readout_path=''):
         '''
         Takes in a (n x m) array of images, where n = number of inputs and m = number of features;
         a number of epochs to train for, and a learning rate.
         '''
         for epoch in range(num_epochs):
+            # save readouts
+            if readout_interval != 0:
+                if (epoch % readout_interval == 0):
+                    self.plot_readouts(readout_examples, epoch, alpha=2, gamma=0.25, theta=0., filename=readout_path + f'\\epoch{epoch}')
+
             start_epoch = time.time()
             # get random shuffle of training set each epoch
             img_arr_shuffled = np.random.permutation(img_arr)
-            print(f'\n\n--------------Epoch: {epoch}--------------\n\n')
+            print(f'\n--------------Epoch: {epoch}--------------')
 
             for q in range(len(img_arr_shuffled)):
                 # get winning neuron
                 winner = self.forward(img_arr_shuffled[q])
-                print(f'Winner of input {q}: {winner}')
+                if q % 1000 == 0:
+                    print(f'{q / len(img_arr_shuffled) * 100}%')
                 # update weights
                 neighborhood_size = self.sigma(epoch)
                 self.update_weights(img_arr_shuffled[q], winner, neighborhood_size, lr)
             
-            print(f'\n-----Time: {time.time() - start_epoch}-----\n\n')
+            print(f'-----Time: {time.time() - start_epoch}-----')
 
+
+    def get_readout_weights(self):
+        readout_weights = np.zeros((self.num_features, int(self.d1 * self.d2)))
+        for j in range(self.weights.shape[0]):
+            for i in range(self.weights.shape[1]):
+                readout_weights[i][j] = self.weights[j][i]
+
+        return readout_weights
+
+
+    def sofm_activation(self, input_vec, alpha):
+        '''
+        Given an input vector and a Gaussian scaling parameter, alpha,
+        calculates the activation of the SOFM neurons given the current input
+        using a Gaussian Radial Basis Function with peak 1 at the weight vector
+        of the SOFM neuron. Returns the vector of SOFM activations.
+        '''
+        return np.exp(-1 * np.square(np.linalg.norm(self.weights - input_vec, axis=1)) / alpha)
+
+
+    def readout_activation(self, readout_net_inputs, gamma, theta):
+        return 1 / (1 + np.exp(gamma * (readout_net_inputs - theta)))
+
+
+    def readout(self, input_vec, alpha, gamma, theta):
+        activations = self.sofm_activation(input_vec, alpha)
+        readout_weights = self.get_readout_weights()
+        readout_net_inputs = np.sum(np.multiply(readout_weights, activations), axis=1) # FIXME: change to np.dot??
+        readout_outputs = 1 - self.readout_activation(readout_net_inputs, gamma, theta) # FIXME: get rid of the "1 - " and start using negative gamma.
+        return readout_outputs
+
+
+    def plot_readouts(self, input_vecs, current_epoch, alpha, gamma, theta, filename):
+        f, axs = plt.subplots(2, 10)
+        for i in range(10):
+            axs[0][i].imshow(input_vecs[i].reshape(28,28), cmap='gray', vmin=0, vmax=1)
+            axs[0][i].get_xaxis().set_visible(False)
+            axs[0][i].get_yaxis().set_visible(False)
+            readout = self.readout(input_vecs[i], alpha=alpha, gamma=gamma, theta=theta)
+            axs[1][i].imshow(readout.reshape(28,28), cmap='gray', vmin=0, vmax=1)
+            axs[1][i].get_xaxis().set_visible(False)
+            axs[1][i].get_yaxis().set_visible(False)
+        
+        f.suptitle(f'Readouts at Epoch {current_epoch}\nalpha={alpha} | gamma={gamma} | theta={theta}')
+        plt.tight_layout()
+        plt.close()
+        f.savefig(filename + f"_alpha_{str(alpha).replace('.','p')}-gamma_{str(gamma).replace('.','p')}-theta_{str(theta).replace('.','p')}")
+
+
+    def grid_search_readouts(self, readout_examples, epoch, alphas, gammas, thetas, filepath):
+        gs_dir = filepath + '\\readouts\\grid_search\\'
+        if not os.path.isdir(gs_dir):
+            os.mkdir(gs_dir)
+        
+        for alpha in alphas:
+            for gamma in gammas:
+                for theta in thetas:
+                    # new_filename = f"\\--alpha_{str(alpha).replace('.','p')}--gamma_{str(gamma).replace('.','p')}--theta_{str(theta).replace('.','p')}"
+                    self.plot_readouts(readout_examples, epoch, alpha=alpha, gamma=gamma, theta=theta, filename=gs_dir)
+
+
+    def plot_readout_process(self, input_images, alpha, gamma, theta, filepath):
+        f, axs = plt.subplots(10, 3)
+        f.suptitle(f'Alpha: {alpha} | Gamma: {gamma} | Theta: {theta}')
+        for i in range(10):
+            activations = self.sofm_activation(input_images[i], alpha=alpha)
+            readout = self.readout(input_images[i], alpha=alpha, gamma=gamma, theta=theta)
+
+            axs[i][0].imshow(input_images[i].reshape(28,28), cmap='gray', vmin=0, vmax=1)
+            axs[i][1].imshow(activations.reshape(24,24), cmap='gray', vmin=0, vmax=1)
+            axs[i][2].imshow(readout.reshape(28,28), cmap='gray', vmin=0, vmax=1)
+            axs[i][0].set_xticks([])
+            axs[i][0].set_yticks([])
+            axs[i][1].set_xticks([])
+            axs[i][1].set_yticks([])
+            axs[i][2].set_xticks([])
+            axs[i][2].set_yticks([])
+        
+        axs[0][0].set_title('Input Image', fontsize=10)       
+        axs[0][1].set_title('Activations', fontsize=10)       
+        axs[0][2].set_title('Readout', fontsize=10)
+
+        f.savefig(filepath + f'\\readout_process_alpha{alpha}_gamma{gamma}_theta{theta}'.replace('.', 'p'))
+        plt.close()
+        
+        
     def visualize_weights(self, filename):
         '''
         Given a filename, plots the weights of all neurons in the SOFM in a grid of shape (self.d1, self.d2).
@@ -172,8 +264,7 @@ class SOFM():
                 ax = axs[r][c]
 
                 # plot image on subplot
-                plottable_image = self.weights[i].reshape(28,28)
-                ax.imshow(plottable_image, cmap='gray')
+                ax.imshow(self.weights[i].reshape(28,28), cmap='gray', vmin=0, vmax=1)
                 
                 ax.set_xbound([0,28])
 
@@ -232,9 +323,9 @@ class SOFM():
         plt.close()
         print('Creating entropy plot...')
         try:
-            plt.imshow(entropy, cmap='hot_r')
+            plt.imshow(entropy, cmap='hot_r', vmin=0, vmax=2)
         except NotImplementedError:
-            plt.imshow(entropy, cmap='hot_r')
+            plt.imshow(entropy, cmap='hot_r', vmin=0, vmax=2)
         plt.colorbar()
         plt.tight_layout()
         plt.savefig(filename)
@@ -270,10 +361,13 @@ class SOFM():
             dataset_i_only = dataset[labels==i]
             winners[i] = np.empty((len(dataset_i_only)), dtype='object')
 
+            checkpoints = [0, 25, 50, 75, 100]
+
             # get list of all winning neurons for each example of class i
             for q in range(len(dataset_i_only)):
+                if q % 1000 == 0:
+                    print(f'{q / len(dataset_i_only) * 100}%')
                 winner_coords = self.forward(dataset_i_only[q].reshape(784))
-                print(f'Winner of input {q}: {winner_coords}')
                 winners[i][q] = winner_coords
 
             # initialize win percentages and win counts of class i for each neuron 
