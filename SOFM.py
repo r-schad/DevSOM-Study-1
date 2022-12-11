@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import math, time
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -34,6 +35,16 @@ def displayImage(img, show=False, save=False, filename=''):
         fig.savefig(filename)
             
     return img_values
+
+
+def save_model_params(params, filename):
+    df = pd.DataFrame(params)
+    df.to_excel(filename, index=False)
+
+    
+def load_model_params(filename):
+    return pd.read_excel(filename).to_numpy()
+
 
 class SOFM():
     def __init__(self, d1, d2, num_features, sigma_o, tau_N):
@@ -131,7 +142,7 @@ class SOFM():
         weight_changes = lr * self.neighborhood(winner, sigma).reshape(self.d1*self.d2,1) * np.subtract(input_vec, self.weights)
         self.weights += weight_changes
 
-
+    
     def train(self, img_arr, num_epochs, lr, readout_interval=0, readout_examples=[], readout_path=''):
         '''
         Takes in a (n x m) array of images, where n = number of inputs and m = number of features;
@@ -189,7 +200,7 @@ class SOFM():
         activations = self.sofm_activation(input_vec, alpha)
         readout_weights = self.get_readout_weights()
         readout_net_inputs = np.sum(np.multiply(readout_weights, activations), axis=1) # FIXME: change to np.dot??
-        readout_outputs = 1 - self.readout_activation(readout_net_inputs, gamma, theta) # FIXME: get rid of the "1 - " and start using negative gamma.
+        readout_outputs = 1 - self.readout_activation(readout_net_inputs, gamma, theta) 
         return readout_outputs
 
 
@@ -405,7 +416,7 @@ class SOFM():
         for q in range(len(dataset)):
             if q % 1000 == 0:
                 print(f'{round(q / len(dataset) * 100, 1)}%')
-                
+
             winner_coords = self.forward(dataset[q])
             
             row = winner_coords[0]
