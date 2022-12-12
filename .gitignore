@@ -1,3 +1,6 @@
 DevSOM_venv
 Update_Requirements.bat
 results
+experiment_1
+__pycache__
+.vscode
