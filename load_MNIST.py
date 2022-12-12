@@ -1,4 +1,6 @@
 import idx2numpy
+import scipy.ndimage
+
 def load_mnist_data(mnist_data_path):
     '''
     given a path to the location of the decompressed MNIST data with the default naming conventions,
@@ -16,3 +18,8 @@ def load_mnist_data(mnist_data_path):
     test_label_arr = idx2numpy.convert_from_file(test_label_file) # shape = (10000,)
 
     return (train_img_arr, train_label_arr, test_img_arr, test_label_arr)
+
+
+def blur_images(imgs, img_d1, img_d2, radius):
+    blurred_imgs = scipy.ndimage.uniform_filter(imgs.reshape(-1, img_d1, img_d2), size=(0, radius, radius))
+    return blurred_imgs.reshape(-1, img_d1*img_d2)
