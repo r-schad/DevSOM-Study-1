@@ -173,6 +173,9 @@ class SOFM():
             print(f'-----Time: {time.time() - start_epoch}-----')
 
 
+    def complexify(self, new_d1,  new_d2, )
+
+
     def get_readout_weights(self):
         readout_weights = np.zeros((self.num_features, int(self.d1 * self.d2)))
         for j in range(self.weights.shape[0]):
@@ -217,8 +220,10 @@ class SOFM():
         
         f.suptitle(f'Readouts at Epoch {current_epoch}\nalpha={alpha} | gamma={gamma} | theta={theta}')
         plt.tight_layout()
+        figname = filepath + f"\\readouts_epoch{current_epoch}_alpha{alpha}_gamma{gamma}_theta{theta}".replace('.','p')
+        f.savefig(figname)
         plt.close()
-        f.savefig(filepath + f"\\readouts_alpha_{str(alpha).replace('.','p')}-gamma_{str(gamma).replace('.','p')}-theta_{str(theta).replace('.','p')}")
+
 
 
     def grid_search_readouts(self, readout_examples, epoch, alphas, gammas, thetas, filepath):
