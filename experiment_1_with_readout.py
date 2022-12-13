@@ -11,7 +11,7 @@ from datetime import datetime
 import seaborn as sns
 
 from load_MNIST import load_mnist_data
-from SOFM import SOFM
+from SOFM import SOFM, save_model_params, load_model_params
 
 train_img_arr, train_label_arr, test_img_arr, test_label_arr = load_mnist_data("..\\..\\MNIST")
 
@@ -39,30 +39,35 @@ np.random.shuffle(train_arr)
 ### HYPERPARAMETERS ###
 NETWORK_D1 = 24
 NETWORK_D2 = 24
-LEARNING_RATE = 0.025 # learning rate
+LEARNING_RATE = 0.025 
 STARTING_NEIGHBORHOOD_SIZE = 3.0
 NEIGHBORHOOD_DECAY_RATE = 25
 NUM_EPOCHS = 900 # CHANGEME
 
-sofm = SOFM(d1=NETWORK_D1, d2=NETWORK_D2, num_features=784, sigma_o=STARTING_NEIGHBORHOOD_SIZE, tau_N=NEIGHBORHOOD_DECAY_RATE)
+CURRENT_STAGE = 0
 
-# create directory for results
-print('Creating results directory...')
-if not os.path.isdir('results'):
-  os.mkdir('results')
+sofm = SOFM(d1=NETWORK_D1, d2=NETWORK_D2, image_dims=(28,28), sigma_o=STARTING_NEIGHBORHOOD_SIZE, tau_N=NEIGHBORHOOD_DECAY_RATE)
+
+# create directory for experiment_1
+print('Creating experiment_1 directory...')
+if not os.path.isdir('experiment_1'):
+  os.mkdir('experiment_1')
 
 date_str = datetime.today().strftime('%Y-%m-%d')
-new_dir = 'results\\' + date_str
+new_dir = 'experiment_1\\' + date_str
 i = 0
 while os.path.isdir(new_dir):
   i += 1
-  new_dir = 'results\\' + date_str + ' (' + str(i) + ')'
+  new_dir = 'experiment_1\\' + date_str + ' (' + str(i) + ')'
 os.mkdir(new_dir)
 os.mkdir(new_dir + '\\readouts')
 
 train_start_time = datetime.now()
-sofm.train(train_arr, NUM_EPOCHS, LEARNING_RATE, readout_interval=10, readout_examples=readout_examples, readout_path=new_dir+'\\readouts')
+sofm.train(train_arr, CURRENT_STAGE, NUM_EPOCHS, LEARNING_RATE, readout_interval=10, readout_examples=readout_examples, readout_path=new_dir+'\\readouts')
 train_end_time = datetime.now()
+
+# save model weights
+save_model_params(sofm.weights, new_dir + '\\sofm_weights.xlsx')
 
 # get win percentage of each neuron by class (using training data) - needed for classification metric
 train_win_counts, train_win_percentages = sofm.calc_win_percentages(train_arr_full, train_label_arr)
@@ -73,7 +78,9 @@ total_wins_train = np.sum(train_win_counts, axis=0)
 # assign label to each neuron based on for which class it won most often 
 # (i.e. which win_percentage for each class is the highest for each neuron)
 # if a neuron did not win for any examples, assign a random class label - need this so we can compute classification metric
-neuron_labels = np.where(total_wins_train != 0, np.argmax(train_win_percentages, axis=0), np.rint(9 * np.random.rand(24, 24))).astype(np.int32) 
+neuron_labels = np.where(total_wins_train != 0, \
+                        np.argmax(train_win_percentages, axis=0), \
+                        np.rint(9 * np.random.rand(NETWORK_D1, NETWORK_D2))).astype(np.int32) 
 
 # plot neuron class tuning labels
 sofm.visualize_neuron_classes(neuron_labels, new_dir + '\\class_tuning')
