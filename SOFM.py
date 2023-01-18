@@ -124,9 +124,6 @@ class SOFM():
         Takes in a winning neuron and current epoch and returns a 2d array (n x n)
         of the Gaussian neighborhood scaling factor for each neuron centered around the winner.
         '''
-        # neighborhood =  exp  {    ( -norm(neuron_i - winner) ) ^ 2      }
-        #                      { ---------------------------------------  }
-        #                      {          2 * sigma(epoch) ^ 2            }
         winner_i = self.convert_to_index(winner)
         dists = self.dist_arrays[winner_i] # get the dist_array for the winner neuron
         top = np.negative(np.square(dists)) 
