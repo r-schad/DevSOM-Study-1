@@ -111,13 +111,12 @@ class SOFM():
         return self.convert_to_coord(winner_index)
 
 
-    def sigma(self, epoch):
+    def sigma(self, current_epoch):
         '''
         Takes in the current epoch and uses the model's fixed hyperparameters to return the 
         range of the neighborhood.
         '''
-        # sigma = sigma_o * exp { -epoch / tau_N }
-        return self.sigma_o * math.e ** (-1 * epoch / self.tau_N)
+        return self.sigma_o * math.e ** (-1 * current_epoch / self.tau_N)
 
 
     def neighborhood(self, winner, neighborhood_size):
