@@ -47,7 +47,7 @@ def load_model_params(filename):
 
 
 class SOFM():
-    def __init__(self, d1, d2, num_features, sigma_o, tau_N):
+    def __init__(self, d1, d2, image_dims, sigma_o, tau_N):
         '''
         A class to initialize a vanilla, rectangular, Kohonen Self-Organizing Feature Map (SOFM). 
         Takes in two dimensions (d1 and d2) of the map, a number of features in the input vector, 
@@ -63,7 +63,8 @@ class SOFM():
         self.neuron_rows = np.array([[i for _ in range(self.d1)] for i in range(self.d2)])
         self.neuron_cols = np.array([[j for j in range(self.d1)] for _ in range(self.d2)])
         self.dist_arrays = self.get_distances_for_all_winners()
-        self.num_features = num_features
+        self.image_dims = image_dims
+        self.num_features = self.image_dims[0] * self.image_dims[1]
         self.weights = np.random.rand(self.d1 * self.d2, self.num_features) * 0.2 #CHANGEME - weight initialization
         self.sigma_o = sigma_o
         self.tau_N = tau_N
