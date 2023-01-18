@@ -1,17 +1,12 @@
-# -*- coding: utf-8 -*-
-
-
 # **Experiment 1:** 
 ### *Train a 24x24 SOFM on MNIST-b1 for 3m epochs.*
 
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 from datetime import datetime
-import seaborn as sns
 
 from load_MNIST import load_mnist_data
-from SOFM import SOFM, save_model_params, load_model_params
+from SOFM import SOFM, save_model_params
 
 train_img_arr, train_label_arr, test_img_arr, test_label_arr = load_mnist_data("..\\..\\MNIST")
 
@@ -42,7 +37,7 @@ NETWORK_D2 = 24
 LEARNING_RATE = 0.025 
 STARTING_NEIGHBORHOOD_SIZE = 3.0
 NEIGHBORHOOD_DECAY_RATE = 25
-NUM_EPOCHS = 900 # CHANGEME
+NUM_EPOCHS = 1 # CHANGEME
 
 CURRENT_STAGE = 0
 
@@ -69,6 +64,9 @@ train_end_time = datetime.now()
 # save model weights
 save_model_params(sofm.weights, new_dir + '\\sofm_weights.xlsx')
 
+# plot weights of all neurons
+sofm.visualize_weights(new_dir + '\\weights')
+
 # get win percentage of each neuron by class (using training data) - needed for classification metric
 train_win_counts, train_win_percentages = sofm.calc_win_percentages(train_arr_full, train_label_arr)
 
@@ -85,9 +83,6 @@ neuron_labels = np.where(total_wins_train != 0, \
 # plot neuron class tuning labels
 sofm.visualize_neuron_classes(neuron_labels, new_dir + '\\class_tuning')
 
-# plot weights of all neurons
-# sofm.visualize_weights(new_dir + '\\weights')
-
 # get win percentage of each neuron by class (using testing data) - needed for entropy and NCL metric
 test_win_counts, test_win_percentages = sofm.calc_win_percentages(test_arr_full, test_label_arr)
 
@@ -98,8 +93,11 @@ entropy = sofm.calc_entropy(test_win_counts)
 sofm.create_entropy_plot(entropy, new_dir + '\\entropy')
 
 # classification metric
-hit_rate = sofm.calc_classification_metric(test_arr_full, test_label_arr, neuron_labels, 
+hit_rate, conf_matrix = sofm.calc_classification_metric(test_arr_full, test_label_arr, neuron_labels, 
                                           plot_conf_matrix=True, filename=new_dir + '\\confusion_matrix')
+
+# create confusion matrix plot
+sofm.plot_conf_matrix(conf_matrix, new_dir + '\\confusion_matrix')
 
 # normalized category localization (NCL) metric
 ncl_score = sofm.calc_ncl_metric(test_win_counts, test_win_percentages)
@@ -108,6 +106,6 @@ ncl_score = sofm.calc_ncl_metric(test_win_counts, test_win_percentages)
 sofm.plot_win_percentages(test_win_percentages, new_dir + '\\win_percentages')
 
 # write out stats.txt
-sofm.write_stats(train_start_time, train_end_time, NUM_EPOCHS, len(train_arr), LEARNING_RATE, new_dir + '\\stats.txt', ncl_score=ncl_score, classification_score=hit_rate)
+sofm.write_stats('Experiment 1', CURRENT_STAGE, train_start_time, train_end_time, NUM_EPOCHS, len(train_arr), LEARNING_RATE, new_dir + '\\stats.txt', ncl_score=ncl_score, classification_score=hit_rate)
 
 pass
