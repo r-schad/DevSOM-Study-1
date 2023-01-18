@@ -140,7 +140,7 @@ class SOFM():
         self.weights += weight_changes
 
     
-    def train(self, img_arr, num_epochs, lr, readout_interval=0, readout_examples=[], readout_path=''):
+    def train(self, img_arr, current_stage, num_epochs, lr, readout_interval=0, readout_examples=[], readout_path=''):
         '''
         Takes in a (n x m) array of images, where n = number of inputs and m = number of features;
         a number of epochs to train for, and a learning rate.
@@ -149,14 +149,14 @@ class SOFM():
             # save readouts
             if readout_interval != 0:
                 if (epoch % readout_interval == 0):
-                    self.plot_readouts(readout_examples, epoch, alpha=10, gamma=2, theta=0., filepath=readout_path)
-                    self.plot_readout_process(readout_examples, alpha=10, gamma=2, theta=0., filepath=readout_path)
+                    self.plot_readouts(readout_examples, current_stage, epoch, alpha=10, gamma=2, theta=0., filepath=readout_path)
+                    self.plot_readout_process(readout_examples, current_stage, epoch, alpha=10, gamma=2, theta=0., filepath=readout_path)
 
 
             start_epoch = time.time()
             # get random shuffle of training set each epoch
             img_arr_shuffled = np.random.permutation(img_arr)
-            print(f'\n--------------Epoch: {epoch}--------------')
+            print(f'\n--------------Stage {current_stage} | Epoch: {epoch}--------------')
 
             for q in range(len(img_arr_shuffled)):
                 # get winning neuron
@@ -167,10 +167,20 @@ class SOFM():
                 neighborhood_size = self.sigma(epoch)
                 self.update_weights(img_arr_shuffled[q], winner, neighborhood_size, lr)
             
-            print(f'-----Time: {time.time() - start_epoch}-----')
+            print(f'------------Time: {time.time() - start_epoch}------------')
 
 
-    def complexify(self, new_d1,  new_d2, )
+    def complexify(self, new_d1,  new_d2, weight_noise, new_sigma_o, new_tau_N):
+        sofm_scale_factor = (new_d1 / self.d1) * (new_d2 / self.d2)
+        self.weights = np.repeat(self.weights, repeats=sofm_scale_factor, axis=0) + np.random.normal(0, weight_noise, (new_d1*new_d2, 784))
+        self.d1 = new_d1
+        self.d2 = new_d2
+        self.neurons = np.array([[(i,j) for j in range(self.d1)] for i in range(self.d2)], dtype='i,i')
+        self.neuron_rows = np.array([[i for _ in range(self.d1)] for i in range(self.d2)])
+        self.neuron_cols = np.array([[j for j in range(self.d1)] for _ in range(self.d2)])
+        self.dist_arrays = self.get_distances_for_all_winners()
+        self.sigma_o = new_sigma_o
+        self.tau_N = new_tau_N
 
 
     def get_readout_weights(self):
@@ -204,46 +214,45 @@ class SOFM():
         return readout_outputs
 
 
-    def plot_readouts(self, input_vecs, current_epoch, alpha, gamma, theta, filepath):
+    def plot_readouts(self, input_vecs, current_stage, current_epoch, alpha, gamma, theta, filepath):
         f, axs = plt.subplots(2, 10)
         for i in range(10):
-            axs[0][i].imshow(input_vecs[i].reshape(28,28), cmap='gray', vmin=0, vmax=1)
+            axs[0][i].imshow(input_vecs[i].reshape(self.image_dims[0], self.image_dims[1]), cmap='gray', vmin=0, vmax=1)
             axs[0][i].get_xaxis().set_visible(False)
             axs[0][i].get_yaxis().set_visible(False)
             readout = self.readout(input_vecs[i], alpha=alpha, gamma=gamma, theta=theta)
-            axs[1][i].imshow(readout.reshape(28,28), cmap='gray', vmin=0, vmax=1)
+            axs[1][i].imshow(readout.reshape(self.image_dims[0], self.image_dims[1]), cmap='gray', vmin=0, vmax=1)
             axs[1][i].get_xaxis().set_visible(False)
             axs[1][i].get_yaxis().set_visible(False)
         
-        f.suptitle(f'Readouts at Epoch {current_epoch}\nalpha={alpha} | gamma={gamma} | theta={theta}')
+        f.suptitle(f'Readouts of Stage {current_stage} at Epoch {current_epoch}\nAlpha: {alpha} | Gamma: {gamma} | Theta: {theta}')
         plt.tight_layout()
-        figname = filepath + f"\\readouts_epoch{current_epoch}_alpha{alpha}_gamma{gamma}_theta{theta}".replace('.','p')
+        figname = filepath + f"/readouts_epoch{current_epoch}_alpha{alpha}_gamma{gamma}_theta{theta}".replace('.','p')
         f.savefig(figname)
         plt.close()
 
 
-
-    def grid_search_readouts(self, readout_examples, epoch, alphas, gammas, thetas, filepath):
-        gs_dir = filepath + '\\grid_search'
+    def grid_search_readouts(self, readout_examples, current_stage, current_epoch, alphas, gammas, thetas, filepath):
+        gs_dir = filepath + '/grid_search'
         if not os.path.isdir(gs_dir):
             os.mkdir(gs_dir)
         
         for alpha in alphas:
             for gamma in gammas:
                 for theta in thetas:
-                    self.plot_readouts(readout_examples, epoch, alpha=alpha, gamma=gamma, theta=theta, filepath=gs_dir)
+                    self.plot_readouts(readout_examples, current_stage, current_epoch, alpha=alpha, gamma=gamma, theta=theta, filepath=gs_dir)
 
 
-    def plot_readout_process(self, input_images, alpha, gamma, theta, filepath):
+    def plot_readout_process(self, input_images, current_stage, current_epoch, alpha, gamma, theta, filepath):
         f, axs = plt.subplots(10, 3)
-        f.suptitle(f'Alpha: {alpha} | Gamma: {gamma} | Theta: {theta}')
+        f.suptitle(f'Stage: {current_stage} at Epoch {current_epoch} | Alpha: {alpha} | Gamma: {gamma} | Theta: {theta}')
         for i in range(10):
             activations = self.sofm_activation(input_images[i], alpha=alpha)
             readout = self.readout(input_images[i], alpha=alpha, gamma=gamma, theta=theta)
 
-            axs[i][0].imshow(input_images[i].reshape(28,28), cmap='gray', vmin=0, vmax=1)
-            axs[i][1].imshow(activations.reshape(24,24), cmap='gray', vmin=0, vmax=1)
-            axs[i][2].imshow(readout.reshape(28,28), cmap='gray', vmin=0, vmax=1)
+            axs[i][0].imshow(input_images[i].reshape(self.image_dims[0], self.image_dims[1]), cmap='gray', vmin=0, vmax=1)
+            axs[i][1].imshow(activations.reshape(self.d1,self.d2), cmap='gray', vmin=0, vmax=1)
+            axs[i][2].imshow(readout.reshape(self.image_dims[0], self.image_dims[1]), cmap='gray', vmin=0, vmax=1)
             axs[i][0].set_xticks([])
             axs[i][0].set_yticks([])
             axs[i][1].set_xticks([])
@@ -255,7 +264,7 @@ class SOFM():
         axs[0][1].set_title('Activations', fontsize=10)       
         axs[0][2].set_title('Readout', fontsize=10)
 
-        f.savefig(filepath + f'\\readout_process_alpha{alpha}_gamma{gamma}_theta{theta}'.replace('.', 'p'))
+        f.savefig(filepath + f'/readout_process_epoch{current_epoch}_alpha{alpha}_gamma{gamma}_theta{theta}'.replace('.', 'p'))
         plt.close()
         
         
@@ -267,23 +276,26 @@ class SOFM():
         this function takes a very significant amount of time to complete (up to an hour). 
         '''
         print('Creating neuron visualization plot...')
+        plt.close()
         try: 
-            fig, axs = plt.subplots(self.d1, self.d2, figsize=(24,24), sharex=True, sharey=True)
+            fig, axs = plt.subplots(self.d1, self.d2, figsize=(self.d1,self.d2), sharex=True, sharey=True)
         except NotImplementedError:
-            fig, axs = plt.subplots(self.d1, self.d2, figsize=(24,24), sharex=True, sharey=True)
+            fig, axs = plt.subplots(self.d1, self.d2, figsize=(self.d1,self.d2), sharex=True, sharey=True)
 
         for r in range(self.d1):
+            print(f'{100 * r / self.d1}%')
             for c in range(self.d2):
                 i = self.convert_to_index((r,c))
                 ax = axs[r][c]
 
                 # plot image on subplot
-                ax.imshow(self.weights[i].reshape(28,28), cmap='gray', vmin=0, vmax=1)
+                ax.imshow(self.weights[i].reshape(self.image_dims[0], self.image_dims[1]), cmap='gray', vmin=0, vmax=1)
                 
-                ax.set_xbound([0,28])
+                ax.set_xbound([0,self.image_dims[1]])
 
         plt.tight_layout()
         fig.savefig(filename)
+        return fig
 
     def plot_win_percentages(self, win_percentages, filename):
         '''
@@ -292,7 +304,8 @@ class SOFM():
         '''
         # plot win percentages on a heatmap for each class
         print('Plotting win percentage distribution heatmaps...')
-        fig, axs = plt.subplots(5, 2, figsize=(20, 45))
+        plt.close()
+        fig, axs = plt.subplots(5, 2, figsize=(10, 25))
         for row in range(5):
             for col in range(2):
                 class_i = (row * 2) + col
@@ -304,8 +317,9 @@ class SOFM():
 
         plt.tight_layout()
         fig.savefig(filename)
+        return fig
         
-    def write_stats(self, train_start, train_end, num_epochs, train_set_size, learning_rate, filename, ncl_score=None, classification_score=None):
+    def write_stats(self, experiment_name, current_stage, train_start, train_end, num_epochs, train_set_size, learning_rate, ncl_score=None, classification_score=None, filename='stats.txt'):
         '''
         Given a start and end time of training, a number of epochs, the size of the training set, the learning rate,
         and (optionally) an NCL metric score and a Classification metric score,
@@ -313,12 +327,18 @@ class SOFM():
         '''
         # write out stats file
         print('Writing out stats file...')
-        with open(filename, 'w+') as f:
-            f.write('Training Start Time: ' + str(train_start))
+        if os.path.exists(filename):
+            mode = 'a'
+        else:
+            mode = 'w+'
+
+        with open(filename, mode) as f:
+            f.write(f'{experiment_name}: Stage {current_stage}\n')
+            f.write('\nTraining Start Time: ' + str(train_start))
             f.write('\nTraining End Time: ' + str(train_end))
             f.write('\nTraining Duration: ' + str(train_end - train_start))
             f.write('\nSOFM Shape: ' + str(self.d1) + ' x ' + str(self.d2))
-            f.write('\nNumber of Epochs: ' + str(num_epochs))
+            f.write('\nTotal Number of Epochs: ' + str(num_epochs))
             f.write('\nSize of Training Set: ' + str(train_set_size))
             f.write('\nLearning Rate: ' + str(learning_rate))
             f.write('\nStarting Neighborhood Size (sigma_o): ' + str(self.sigma_o))
@@ -327,7 +347,9 @@ class SOFM():
                 f.write('\nNormalized Category Localization (NCL) Score: ' + str(ncl_score))
             if classification_score:
                 f.write('\nClassification Score: ' + str(classification_score))
-        f.close()
+            f.write('\n\n\n')
+        
+        return filename
 
     def create_entropy_plot(self, entropy, filename):
         '''
@@ -336,20 +358,23 @@ class SOFM():
         # create entropy plot
         plt.close()
         print('Creating entropy plot...')
+        fig = plt.figure()
         try:
             plt.imshow(entropy, cmap='hot_r', vmin=0, vmax=2)
         except NotImplementedError:
             plt.imshow(entropy, cmap='hot_r', vmin=0, vmax=2)
         plt.colorbar()
         plt.tight_layout()
-        plt.savefig(filename)
-        plt.close()
+        fig.savefig(filename)
+        return fig
 
     def visualize_neuron_classes(self, neuron_labels, filename):
         '''
         Given the class labels that each neuron is most tuned to, creates a colored grid of all 
         neuron labels, and saves the figure to filename. 
         '''
+        plt.close()
+        fig = plt.figure()
         try:
             plt.matshow(neuron_labels, cmap='tab10', vmin = np.min(neuron_labels) - 0.5, vmax = np.max(neuron_labels) + 0.5)
         except NotImplementedError:
@@ -357,6 +382,7 @@ class SOFM():
 
         plt.colorbar(ticks=range(int(np.min(neuron_labels)), int(np.max(neuron_labels)) + 1, 1))
         plt.savefig(filename)
+        return fig
 
     def calc_win_percentages(self, dataset, labels):
         '''
@@ -374,8 +400,6 @@ class SOFM():
             # get subset of dataset with only examples of class i 
             dataset_i_only = dataset[labels==i]
             winners[i] = np.empty((len(dataset_i_only)), dtype='object')
-
-            checkpoints = [0, 25, 50, 75, 100]
 
             # get list of all winning neurons for each example of class i
             for q in range(len(dataset_i_only)):
@@ -401,14 +425,12 @@ class SOFM():
 
         return win_counts, win_percentages
 
-    def calc_classification_metric(self, dataset, data_labels, neuron_labels, plot_conf_matrix, filename):
+    def calc_classification_metric(self, dataset, data_labels, neuron_labels):
         '''
         Given a dataset, its corresponding labels, and the neuron_labels that each
         neuron is tuned to, calculates the proportion of correctly classified input examples (hit_rate).
 
-        If plot_conf_matrix is True, plots the confusion matrix and saves the figure to filename.
-
-        Returns the hit_rate.
+        Returns the hit rate and the confusion matrix.
         
         '''
         # get win percentage of each neuron by class (using testing data)
@@ -432,15 +454,18 @@ class SOFM():
 
         hit_rate = num_correct / len(dataset)
 
-        if plot_conf_matrix:
-            print('Plotting confusion matrix...')
-            plt.figure()
-            sns.heatmap(conf_matrix, cmap='hot', annot=True, fmt='g')
-            plt.savefig(filename)
-            plt.close()
-
-        return hit_rate
+        return hit_rate, conf_matrix
             
+
+    def plot_conf_matrix(self, conf_matrix, filename):
+        print('Plotting confusion matrix...')
+        plt.close()
+        fig = plt.figure()
+        sns.heatmap(conf_matrix, cmap='hot', annot=True, fmt='g')
+        fig.savefig(filename)
+        return fig
+
+
     def calc_entropy(self, win_counts):
         ''' 
         Given the win_counts of all neurons for each class, calculates the entropy across all neurons.
