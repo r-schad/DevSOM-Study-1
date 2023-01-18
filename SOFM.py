@@ -39,11 +39,11 @@ def displayImage(img, show=False, save=False, filename=''):
 
 def save_model_params(params, filename):
     df = pd.DataFrame(params)
-    df.to_excel(filename, index=False)
+    df.to_excel(filename, index=False, header=False)
 
     
 def load_model_params(filename):
-    return pd.read_excel(filename).to_numpy()
+    return pd.read_excel(filename, header=None).to_numpy()
 
 
 class SOFM():
