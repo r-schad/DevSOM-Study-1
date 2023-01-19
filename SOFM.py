@@ -47,12 +47,12 @@ def load_model_params(filename):
 
 
 class SOFM():
-    def __init__(self, d1, d2, image_dims, sigma_o, tau_N):
+    def __init__(self, d1, d2, image_dims, init_nhood, init_lr):
         '''
         A class to initialize a vanilla, rectangular, Kohonen Self-Organizing Feature Map (SOFM). 
-        Takes in two dimensions (d1 and d2) of the map, a number of features in the input vector, 
-        a (fixed) hyperparameter sigma_o for the initial neighborhood size, 
-        and a (fixed) hyperparameter tau_N for the neighborhood shrinkage rate.
+        Takes in two dimensions (d1 and d2) of the map, a tuple of the input dimensions, 
+        an initial neighborhood range, 
+        and an initial learning rate.
         
         Weights are initialized to small, random, values [0, 0.2).        
         
@@ -62,18 +62,18 @@ class SOFM():
         self.neurons = np.array([[(i,j) for j in range(self.d1)] for i in range(self.d2)], dtype='i,i')
         self.neuron_rows = np.array([[i for _ in range(self.d1)] for i in range(self.d2)])
         self.neuron_cols = np.array([[j for j in range(self.d1)] for _ in range(self.d2)])
-        self.dist_arrays = self.get_distances_for_all_winners()
+        self.dist_arrays = self.get_distances_for_all_neurons()
         self.image_dims = image_dims
         self.num_features = self.image_dims[0] * self.image_dims[1]
-        self.weights = np.random.rand(self.d1 * self.d2, self.num_features) * 0.2 #CHANGEME - weight initialization
-        self.sigma_o = sigma_o
-        self.tau_N = tau_N
+        self.weights = np.random.rand(self.d1 * self.d2, self.num_features) * 0.2
+        self.init_nhood = init_nhood
+        self.init_lr = init_lr
 
-    def get_distances_for_all_winners(self):
+    def get_distances_for_all_neurons(self):
         '''
         Initializes a ((d1*d2) x d1 x d2) array of the Euclidian norms of each neuron for every possible winner.
         (This avoids having to compute these values for each input example;
-        instead, we just do it for all possible neurons once at the start.)
+        instead, we just do it for all possible neurons once at the start of the current training stage.)
         '''
         dist_arrs = np.ndarray((self.d1*self.d2, self.d1, self.d2))
         for r in range(self.d1):
@@ -111,12 +111,37 @@ class SOFM():
         return self.convert_to_coord(winner_index)
 
 
-    def sigma(self, current_epoch):
+    def hyperbolic_decay(self, init_value, epoch, total_iterations):
         '''
-        Takes in the current epoch and uses the model's fixed hyperparameters to return the 
-        range of the neighborhood.
+        Takes in an initial value for the hyperparameter undergoing hyperbolic decay,
+        the current epoch, and the total number of iterations, where
+        total_iterations = number of epochs to be trained * size of training set.
+
+        Computes the value of the hyperparameter of the current epoch as:
+        a(t) = a_0 / (1 + (2t / T))
+
+        Where a is the hyperparameter to be computed, t is the current epoch, 
+        and T is the total number of iterations of the current training stage.
+        
+        Returns the value of the hyperparameter for the current epoch.
         '''
-        return self.sigma_o * math.e ** (-1 * current_epoch / self.tau_N)
+        return init_value / (1 + (2 * epoch / total_iterations))
+
+
+    def learning_rate(self, epoch, total_iterations):
+        '''
+        Takes in the current epoch and the total number of iterations for the current training stage, 
+        and returns the learning rate at the current epoch.
+        '''
+        return self.hyperbolic_decay(self.init_lr, epoch, total_iterations)
+
+    
+    def neighborhood_range(self, epoch, total_iterations):
+        '''
+        Takes in the current epoch and the total number of iterations for the current training stage, 
+        and returns the size of the neighborhood at the current epoch.
+        '''
+        return self.hyperbolic_decay(self.init_nhood, epoch, total_iterations)
 
 
     def neighborhood(self, winner, neighborhood_size):
@@ -131,12 +156,12 @@ class SOFM():
         return np.exp(np.divide(top, bottom))
 
 
-    def update_weights(self, input_vec, winner, sigma, lr):
+    def update_weights(self, input_vec, winner, neighborhood_size, lr):
         '''
-        Takes in a single input vector, winning neuron, current epoch, and learning rate,
+        Takes in a single input vector, winning neuron, neighborhood range, and learning rate,
         and updates the model's weights in-place.
         '''
-        weight_changes = lr * self.neighborhood(winner, sigma).reshape(self.d1*self.d2,1) * np.subtract(input_vec, self.weights)
+        weight_changes = lr * self.neighborhood(winner, neighborhood_size).reshape(self.d1*self.d2,1) * np.subtract(input_vec, self.weights)
         self.weights += weight_changes
 
     
@@ -145,6 +170,7 @@ class SOFM():
         Takes in a (n x m) array of images, where n = number of inputs and m = number of features;
         a number of epochs to train for, and a learning rate.
         '''
+        total_iterations = num_epochs * img_arr.size[0]
         for epoch in range(num_epochs):
             # save readouts
             if readout_interval != 0:
@@ -164,13 +190,14 @@ class SOFM():
                 if q % 1000 == 0:
                     print(f'{round(q / len(img_arr_shuffled) * 100, 1)}%')
                 # update weights
-                neighborhood_size = self.sigma(epoch)
+                neighborhood_size = self.neighborhood_range(epoch, total_iterations)
+                lr = self.learning_rate(epoch, total_iterations)
                 self.update_weights(img_arr_shuffled[q], winner, neighborhood_size, lr)
             
             print(f'------------Time: {time.time() - start_epoch}------------')
 
 
-    def complexify(self, new_d1,  new_d2, weight_noise, new_sigma_o, new_tau_N):
+    def complexify(self, new_d1,  new_d2, weight_noise, new_init_nhood, new_init_lr):
         sofm_scale_factor = (new_d1 / self.d1) * (new_d2 / self.d2)
         self.weights = np.repeat(self.weights, repeats=sofm_scale_factor, axis=0) + np.random.normal(0, weight_noise, (new_d1*new_d2, 784))
         self.d1 = new_d1
@@ -178,9 +205,9 @@ class SOFM():
         self.neurons = np.array([[(i,j) for j in range(self.d1)] for i in range(self.d2)], dtype='i,i')
         self.neuron_rows = np.array([[i for _ in range(self.d1)] for i in range(self.d2)])
         self.neuron_cols = np.array([[j for j in range(self.d1)] for _ in range(self.d2)])
-        self.dist_arrays = self.get_distances_for_all_winners()
-        self.sigma_o = new_sigma_o
-        self.tau_N = new_tau_N
+        self.dist_arrays = self.get_distances_for_all_neurons()
+        self.init_nhood = new_init_nhood
+        self.init_lr = new_init_lr
 
 
     def get_readout_weights(self):
@@ -297,6 +324,7 @@ class SOFM():
         fig.savefig(filename)
         return fig
 
+
     def plot_win_percentages(self, win_percentages, filename):
         '''
         Given the win percentages of all neurons for each class, plots a heatmap of win percentages for each class
@@ -319,7 +347,8 @@ class SOFM():
         fig.savefig(filename)
         return fig
         
-    def write_stats(self, experiment_name, current_stage, train_start, train_end, num_epochs, train_set_size, learning_rate, ncl_score=None, classification_score=None, filename='stats.txt'):
+
+    def write_stats(self, experiment_name, current_stage, train_start, train_end, num_epochs, train_set_size, ncl_score=None, classification_score=None, filename='stats.txt'):
         '''
         Given a start and end time of training, a number of epochs, the size of the training set, the learning rate,
         and (optionally) an NCL metric score and a Classification metric score,
@@ -340,9 +369,8 @@ class SOFM():
             f.write('\nSOFM Shape: ' + str(self.d1) + ' x ' + str(self.d2))
             f.write('\nTotal Number of Epochs: ' + str(num_epochs))
             f.write('\nSize of Training Set: ' + str(train_set_size))
-            f.write('\nLearning Rate: ' + str(learning_rate))
-            f.write('\nStarting Neighborhood Size (sigma_o): ' + str(self.sigma_o))
-            f.write('\nNeighborhood Decay Rate (tau_N): ' + str(self.tau_N))
+            f.write('\nInitial Learning Rate: ' + str(self.init_lr))
+            f.write('\nInitial Neighborhood Size: ' + str(self.init_nhood))
             if ncl_score:
                 f.write('\nNormalized Category Localization (NCL) Score: ' + str(ncl_score))
             if classification_score:
